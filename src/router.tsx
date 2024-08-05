@@ -1,12 +1,57 @@
 import Home from "./pages/Home/Home";
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, redirect } from "react-router-dom";
 import NoMatch from "./pages/NoMatch/NoMatch";
 import Layout from "./pages/Layout/Layout";
+import Login from "./pages/Login/Login";
+import { AuthProvider } from "./config/auth/auth";
+import { jotaiSessionStore } from "./config/store/jotaiStore";
 
 export const router = createBrowserRouter([
   {
     path: "/",
+    id: "beforeroot",
+    loader() {
+      const token = jotaiSessionStore.getItem("token", null);
+      const isAuthenticated = jotaiSessionStore.getItem(
+        "isAuthenticated",
+        null
+      );
+      // Our root route always provides the user, if logged in
+      if (isAuthenticated && token) {
+        window.location.replace("/auth");
+      }
+      return { isAuthenticated: isAuthenticated };
+    },
+    children: [
+      {
+        index: true,
+        lazy: () => import("./pages/Login/LoginAsync"),
+      },
+      {
+        path: "login",
+        element: <Login />,
+        // const token = jotaiSessionStore.getItem("token", null);
+        //   const isAuthenticated = jotaiSessionStore.getItem(
+        //     "isAuthenticated",
+        //     null
+        //   );
+        //   if (isAuthenticated && token) {
+        //     redirect("/auth");
+        //   } else {
+        //     return redirect("/login");
+        //   }
+        // },
+      },
+    ],
+  },
+  {
+    path: "auth",
     element: <Layout />,
+    loader() {
+      // Our root route always provides the user, if logged in
+      return { user: jotaiSessionStore.getItem("user", null) };
+    },
+    id: "root",
     children: [
       {
         index: true,
@@ -15,7 +60,7 @@ export const router = createBrowserRouter([
       {
         path: "login",
         // Single route in lazy file
-        lazy: () => import("./pages/Login/Login"),
+        lazy: () => import("./pages/Login/LoginAsync"),
       },
       {
         path: "dashboard",
@@ -53,5 +98,13 @@ export const router = createBrowserRouter([
         element: <NoMatch />,
       },
     ],
+  },
+  {
+    path: "/logout",
+    async action() {
+      // We signout in a "resource route" that we can hit from a fetcher.Form
+      await AuthProvider.signout();
+      return redirect("/");
+    },
   },
 ]);
